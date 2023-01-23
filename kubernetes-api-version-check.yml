@@ -1,0 +1,73 @@
+name: "Kubernetes API"
+
+on:
+  workflow_call:
+    inputs:
+      working_dir:
+        description: 'Directory containing the manifest files to check'
+        required: true
+        type: string
+      target_version:
+        description: 'Target kubernetes version to check for deprecations.'
+        required: false
+        type: string
+        default: '1.24.0'
+      runs_on_labels:
+        description: 'List of labels to use in the runs-on attribute of the jobs for routing to a runner.'
+        required: false
+        type: string
+        default: '["linux"]'
+        
+
+jobs:
+  check_api_versions:
+
+    runs-on: ${{fromJSON(inputs.runs_on_labels)}}
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Pluto
+        uses: FairwindsOps/pluto/github-action@v5.11.2
+
+      - name: Check files
+        id: check
+        run: |
+          echo "CHECKS<<EOF" >> $GITHUB_ENV
+          pluto detect-files -d ${{ inputs.working_dir }} --target-versions K8s=v${{ inputs.target_version }} --ignore-removals --ignore-deprecations >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+          deprecations=$(pluto detect-files -d ${{ inputs.working_dir }} --target-versions K8s=v${{ inputs.target_version }} --ignore-removals --ignore-deprecations | wc -l)
+          if [ $deprecations -eq 1 ]
+          then 
+            echo ::set-output name=deprecations::'no_deprecations'
+          else
+            echo ::set-output name=deprecations::'deprecations_found'
+          fi
+
+            
+
+      - name: Post Checks to PR
+        id: post_check_to_pr
+        if: steps.check.outputs.deprecations == 'deprecations_found'
+        uses: actions/github-script@0.9.0
+        continue-on-error: true
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const output = `#### Kubernetes Checks \`
+            <details><summary>${{ inputs.working_dir }} Checks</summary>
+
+            \`\`\`\n
+            ${process.env.CHECKS}
+            \`\`\`
+
+            </details>
+            *Pusher: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
+            github.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
+
