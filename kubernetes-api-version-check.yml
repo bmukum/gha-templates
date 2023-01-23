@@ -71,3 +71,37 @@ jobs:
               body: output
             })
 
+
+name: "Kubernetes API Version Checks"
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "kubernetes/**"
+
+jobs:
+  base:
+    uses: sportngin/se-actions-workflow-templates/.github/workflows/kubernetes-api-version-check.yml@v1.2.0
+    with:
+      working_dir: './kubernetes/base'
+      runs_on_labels: '["ubuntu-latest"]'
+
+  base_cron_jobs:
+    uses: sportngin/se-actions-workflow-templates/.github/workflows/kubernetes-api-version-check.yml@v1.2.0
+    with:
+      working_dir: './kubernetes/base/cron_jobs'
+      runs_on_labels: '["ubuntu-latest"]'
+
+  overlays-staging:
+    uses: sportngin/se-actions-workflow-templates/.github/workflows/kubernetes-api-version-check.yml@v1.2.0
+    with:
+      working_dir: './kubernetes/overlays/staging'
+      runs_on_labels: '["ubuntu-latest"]'
+
+  overlays-production:
+    uses: sportngin/se-actions-workflow-templates/.github/workflows/kubernetes-api-version-check.yml@v1.2.0
+    with:
+      working_dir: './kubernetes/overlays/production'
+      runs_on_labels: '["ubuntu-latest"]'
